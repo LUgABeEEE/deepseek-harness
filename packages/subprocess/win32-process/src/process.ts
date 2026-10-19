@@ -173,6 +173,30 @@ function closeAllOwned(api: Win32ProcessBindings, owned: Set<NativePtr>): void {
   owned.clear()
 }
 
+let hostConsoleEnsured = false
+
+/**
+ * Give a console-less host (Electron GUI, or a process that called
+ * FreeConsole()) one hidden console before the first restricted spawn.
+ *
+ * Without it CreateProcessAsUserW routes through conhost, where the
+ * low-integrity restricted token is refused during DLL initialization and the
+ * child dies with 0xC0000142 (STATUS_DLL_INIT_FAILED). Allocating the console
+ * once and hiding its window keeps the desktop free of a black frame.
+ * @param api - active binding table.
+ */
+function ensureHostConsole(api: Win32ProcessBindings): void {
+  if (hostConsoleEnsured) return
+  try {
+    if (api.getConsoleWindow() === null && api.allocConsole() !== 0) {
+      const window = api.getConsoleWindow()
+      if (window !== null) api.showWindow(window, 0)
+    }
+  } finally {
+    hostConsoleEnsured = true
+  }
+}
+
 function createRestrictedProcess(
   api: Win32ProcessBindings,
   options: RestrictedProcessSpawnOptions,
@@ -181,6 +205,7 @@ function createRestrictedProcess(
   startupInfo: NativePtr,
   processInfo: NativePtr,
 ): number {
+  ensureHostConsole(api)
   // The sandbox mutates its process environment before this call. Passing an
   // explicit block through Koffi makes CreateProcessAsUserW reject the request
   // with ERROR_INVALID_PARAMETER, so lpEnvironment remains NULL.

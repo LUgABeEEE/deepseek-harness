@@ -70,6 +70,9 @@ export interface Win32ProcessBindings {
     args: null,
   ): number
   createPipe(readHandle: NativePtr, writeHandle: NativePtr, attributes: null, size: number): number
+  getConsoleWindow(): NativePtr | null
+  allocConsole(): number
+  showWindow(window: NativePtr, command: number): number
   setHandleInformation(handle: NativePtr, mask: number, flags: number): number
   createProcessAsUserW(
     token: NativePtr,
@@ -274,6 +277,7 @@ function bindings(): CurrentTokenProcessBindings {
   const koffi = requireKoffi()
   const { PVOID, PPVOID, STARTUPINFOW, PROCESS_INFORMATION } = win32Types()
   const { kernel32, advapi32, bind } = bindingContext()
+  const user32 = koffi.load('user32.dll')
   const node = koffi.load(null)
   cached = {
     closeHandle: bind(kernel32, 'CloseHandle', 'int', [PVOID]),
@@ -283,6 +287,9 @@ function bindings(): CurrentTokenProcessBindings {
       'uint32', PVOID, 'uint32', 'uint32', PVOID, 'uint32', PVOID,
     ]),
     createPipe: bind(kernel32, 'CreatePipe', 'int', [PPVOID, PPVOID, PVOID, 'uint32']),
+    getConsoleWindow: bind(kernel32, 'GetConsoleWindow', PVOID, []),
+    allocConsole: bind(kernel32, 'AllocConsole', 'int', []),
+    showWindow: bind(user32, 'ShowWindow', 'int', [PVOID, 'int']),
     setHandleInformation: bind(kernel32, 'SetHandleInformation', 'int', [PVOID, 'uint32', 'uint32']),
     createProcessAsUserW: bind(advapi32, 'CreateProcessAsUserW', 'int', [
       PVOID, 'str16', 'str16', PVOID, PVOID, 'int', 'uint32', PVOID, 'str16',
